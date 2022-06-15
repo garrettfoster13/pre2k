@@ -13,6 +13,10 @@ import ssl
 import sys
 
 
+# credit to @@Oddvarmoe and their blogpost at:
+# https://www.trustedsec.com/blog/diving-into-pre-created-computer-accounts/
+
+
 show_banner = '''
 
                                 ___    __         
