@@ -313,6 +313,8 @@ class GETTGT:
 
     def saveTicket(self, ticket, sessionKey):
         print('Saving ticket in %s' % (self.__user + '.ccache'))
+        print('exort KRB5CCNAME=%s' % (os.getcwd()) + self.__user + '.ccache')
+        #print('export KRB5CCNAME=%s %s' % (os.getcwd()) % (self.__user + '.ccache'))
         from impacket.krb5.ccache import CCache
         ccache = CCache()
 
@@ -356,7 +358,10 @@ class machinehunter:
             attributes = json_entry['attributes'].keys()
             for attr in attributes:
                 val = entry[attr].value
-                credentials = val + ":" + val.lower()[:-1]
+                if len(val) >= 15:
+                    credentials = val + ":" + val.lower()[:-2]
+                else:
+                    credentials = val + ":" + val.lower()[:-1]
                 creds.append(credentials)
         return creds
 
