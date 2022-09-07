@@ -344,7 +344,7 @@ class machinehunter:
         num = 0
         with console.status(f"Searching...", spinner="dots") as status:
             if self.targeted:
-                search_filter = "(&(objectclass=computer)(useraccountcontrol=4128))"
+                search_filter = "(&(objectclass=computer)(logonCount=0))"
             else:
                 search_filter = "(objectclass=computer)"
             try:
