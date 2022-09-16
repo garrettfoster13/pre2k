@@ -444,7 +444,7 @@ def main():
         creds = 0
 
         try:
-            ldap_server, ldap_session = init_ldap_session(domain=args.d, username=args.u, password=args.p, lmhash=args.lmhash, nthash=args.nthash, kerberos=args.kerberos, domain_controller=args.dc_ip, aesKey=args.aes, hashes=args.hashes, ldaps=args.ldaps
+            ldap_server, ldap_session = init_ldap_session(domain=args.d, username=args.u, password=args.p, lmhash=args.lmhash, nthash=args.nthash, kerberos=args.k, domain_controller=args.dc_ip, aesKey=args.aes, hashes=args.hashes, ldaps=args.ldaps
  )
         except ldap3.core.exceptions.LDAPSocketOpenError as e: 
             if 'invalid server address' in str(e):
