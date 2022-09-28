@@ -51,6 +51,7 @@ def arg_parse():
     unauth_parser.add_argument("-verbose", action="store_true", help="Verbose output displaying failed attempts.")
     unauth_parser.add_argument("-stoponsuccess", action='store_true', help="Stop on sucessful authentication")
     unauth_parser.add_argument("-save", action="store_true", help="Request and save a .ccache file to your current working directory")
+    unauth_parser.add_argument("-n", action="store_true", help="Attempt authentication with an empty password.")
 
 
     auth_parser = subparsers.add_parser("auth", help="Query the domain for pre Windows 2000 machine accounts.")
@@ -68,6 +69,7 @@ def arg_parse():
     auth_parser.add_argument("-outputfile", action="store", help="Log results to file.")
     auth_parser.add_argument("-stoponsuccess", action='store_true', help="Stop on sucessful authentication")
     auth_parser.add_argument("-save", action="store_true", help="Request and save a .ccache file to your current working directory")
+    auth_parser.add_argument("-n", action="store_true", help="Attempt authentication with an empty password.")
    
 
     if len(sys.argv) == 1:
@@ -380,6 +382,8 @@ def printlog(line, outputfile):
 def pw_spray(creds, args):
     dt = datetime.now()
     print("Testing started at", dt)
+    if args.n: 
+        print("Testing with empty password.")
     with console.status(f"", spinner="dots") as status:
         tried = 0
         valid = 0
@@ -390,13 +394,19 @@ def pw_spray(creds, args):
                 status.update(f"Tried {tried}/{accounts}. {valid} valid.")
                 username, password = cred.split(":")
                 save = False
-                executer = GETTGT(username, password, args.d, args.dc_ip)
+                if args.n:
+                    executer = GETTGT(username, '', args.d, args.dc_ip)
+                else:
+                    executer = GETTGT(username, password, args.d, args.dc_ip)
                 if args.save:
                     save=True
                 validate = executer.run(save)
                 if validate:
                     valid += 1
-                    line = (f'[+] VALID CREDENTIALS: {args.d}\\{cred}')
+                    if args.n:
+                        line = (f'[+] VALID CREDENTIALS: {args.d}\\{username}:nopass')
+                    else:                        
+                        line = (f'[+] VALID CREDENTIALS: {args.d}\\{cred}')
                     print (line)
                     if args.outputfile:
                             printlog(line, args.outputfile)
@@ -408,7 +418,10 @@ def pw_spray(creds, args):
                 sys.exit()
             except:
                 if args.verbose:
-                    line = (f'[-] Invalid credentials: {args.d}\\{cred}')
+                    if args.n:
+                        line = (f'[-] Invalid credentials: {args.d}\\{username}:nopass')
+                    else:
+                        line = (f'[-] Invalid credentials: {args.d}\\{cred}')
                     print (line)
                     if args.outputfile:
                             printlog(line, args.outputfile)
