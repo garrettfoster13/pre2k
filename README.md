@@ -4,7 +4,9 @@ Pre2k is a tool to query for the existence of pre-windows 2000 computer objects 
 
 ## Installation
 
-```pip3 install -r requirements.txt```
+```
+pip3 install -r requirements.txt
+```
 
 
 ## Usage
