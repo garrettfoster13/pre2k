@@ -1,3 +1,4 @@
+from ast import arg
 from impacket.smbconnection import SMBConnection
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 from binascii import unhexlify
@@ -14,6 +15,8 @@ from impacket.krb5.types import Principal
 import os
 from rich.console import Console
 from datetime import datetime
+import time
+from random import randint
 
 show_banner = '''
 
@@ -33,7 +36,7 @@ show_banner = '''
 console = Console()
 
 def arg_parse():
-    parser = argparse.ArgumentParser(add_help=True, description=
+    parser = argparse.ArgumentParser(add_help=True,description=
     '''Tool to enumerate a target environment for the presence of machine accounts configured as pre-2000 Windows machines.\n
     Either by brute forcing all machine accounts, a targeted, filtered approach, or from a user supplied input list.
     ''')
@@ -41,17 +44,21 @@ def arg_parse():
     # auth_group = parser.add_argument_group("Authentication")
     # optional_group = parser.add_argument_group("Optional Flags")
 
+
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     unauth_parser = subparsers.add_parser("unauth", help='Pass a list of hostnames to test authentication.')
     unauth_parser.add_argument('-d', action='store', metavar='', required=True, help="Target domain")
     unauth_parser.add_argument('-dc-ip', action='store', metavar='', help = "IP address or FQDN of domain controller", required=True)
-    unauth_parser.add_argument("-inputfile", action="store", help="Pass a list of machine accounts to validate. Format = 'machinename$'")
+    unauth_parser.add_argument("-inputfile", action="store", help="Pass a list of machine accounts to validate. Format machinename$")
     unauth_parser.add_argument("-outputfile", action="store", help="Log results to file.")
     unauth_parser.add_argument("-verbose", action="store_true", help="Verbose output displaying failed attempts.")
     unauth_parser.add_argument("-stoponsuccess", action='store_true', help="Stop on sucessful authentication")
     unauth_parser.add_argument("-save", action="store_true", help="Request and save a .ccache file to your current working directory")
     unauth_parser.add_argument("-n", action="store_true", help="Attempt authentication with an empty password.")
+    unauth_parser.add_argument("-sleep", action="store", help="Length of time to sleep between attempts in seconds.", type=int)
+    unauth_parser.add_argument("-jitter", action="store", help="Add jitter to sleep time.", type=int)
+    unauth_parser
 
 
     auth_parser = subparsers.add_parser("auth", help="Query the domain for pre Windows 2000 machine accounts.")
@@ -70,6 +77,9 @@ def arg_parse():
     auth_parser.add_argument("-stoponsuccess", action='store_true', help="Stop on sucessful authentication")
     auth_parser.add_argument("-save", action="store_true", help="Request and save a .ccache file to your current working directory")
     auth_parser.add_argument("-n", action="store_true", help="Attempt authentication with an empty password.")
+    auth_parser.add_argument("-sleep", action="store", help="Length of time to sleep between attempts in seconds.", type=int)
+    auth_parser.add_argument("-jitter", action="store", help="Add jitter to sleep time.", type=int)
+
    
 
     if len(sys.argv) == 1:
@@ -425,6 +435,18 @@ def pw_spray(creds, args):
                     print (line)
                     if args.outputfile:
                             printlog(line, args.outputfile)
+            if args.sleep and args.jitter:
+                delay = ""
+                delay = args.sleep
+                jitter = args.jitter
+                delay = delay + (delay * (randint(1, jitter) / 100))
+                print (f'Sleeping {delay} seconds until next attempt.')
+                time.sleep(delay)
+            elif args.sleep and not args.jitter:
+                delay = ""
+                delay = args.sleep
+                print(f'Sleeping {delay} seconds until next attempt.')
+                time.sleep(delay)
 
 def parse_input(inputfile, args):
     creds = []
