@@ -58,7 +58,6 @@ def arg_parse():
     unauth_parser.add_argument("-n", action="store_true", help="Attempt authentication with an empty password.")
     unauth_parser.add_argument("-sleep", action="store", help="Length of time to sleep between attempts in seconds.", type=int)
     unauth_parser.add_argument("-jitter", action="store", help="Add jitter to sleep time.", type=int)
-    unauth_parser
 
 
     auth_parser = subparsers.add_parser("auth", help="Query the domain for pre Windows 2000 machine accounts.")
