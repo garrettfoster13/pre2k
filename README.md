@@ -7,7 +7,7 @@ Pre2k is a tool to query for the existence of pre-windows 2000 computer objects 
 ```
 git clone https://github.com/garrettfoster13/pre2k.git
 cd pre2k/
-pip3 install -r requirements.txt
+pip3 .
 ```
 
 
@@ -114,4 +114,13 @@ options:
                         Log results to file.
   -stoponsuccess        Stop on sucessful authentication
   -save                 Request and save a .ccache file to your current working directory
+```
+
+## Development
+```
+pip3 install poetry
+git clone https://github.com/garrettfoster13/pre2k.git
+cd pre2k/
+poetry install
+poetry run pre2k --help
 ```
