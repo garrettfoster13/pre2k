@@ -129,12 +129,15 @@ class Pre2k:
         if validate:
             self.valid += 1
             if self.empty_pass:
-                line = (f'VALID CREDENTIALS: {self.domain}\\{username}:nopass')
+                line = (f'[green bold]VALID CREDENTIALS[/]: {self.domain}\\{username}:nopass')
+
             else:   
                 line = (f'[green bold]VALID CREDENTIALS[/]: {self.domain}\\{cred}')
             logger.info (line, extra=OBJ_EXTRA_FMT)
             if self.outputfile:
-                self.printlog(line)
+                self.printlog(line.split(":"))
+            if self.save:
+                logger.info(f'Saving ticket in {username}.ccache')
             
             self.delay()
             return True
