@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "pre2k"
-version = "2.0"
+version = "3.0"
 description = ""
-authors = ["garrfoster"]
+authors = ["garrfoster", "Tw1sm"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
