@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "pre2k"
+version = "2.0"
+description = ""
+authors = ["garrfoster"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+impacket = "0.10.0"
+ldap3 = "2.9.1"
+pyasn1 = "0.4.8"
+rich = "12.5.1"
+typer = "^0.6.1"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+pre2k = "pre2k.__main__:app"
