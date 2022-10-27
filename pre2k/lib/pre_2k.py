@@ -182,6 +182,7 @@ class Pre2k:
   \ \ \/  \/_/ \/____/         \/_____/   \/_/\/_/
    \ \_\                                      v{__version__}    
     \/_/                                          
-                                            @garrfoster          
+                                            @garrfoster
+                                            @Tw1sm          
 '''
         print(banner)
