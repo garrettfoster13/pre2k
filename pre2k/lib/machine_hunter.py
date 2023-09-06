@@ -37,7 +37,7 @@ class MachineHunter:
                     val = entry[attr].value
                     if len(val) >= 15:
                         #if account name is 15 chars or more pw is first 14
-                        credentials = val + ":" + val.lower()[:-2]
+                        credentials = val + ":" + val.lower()[:14]
                     else:
                         credentials = val + ":" + val.lower()[:-1]
                     creds.append(credentials)
