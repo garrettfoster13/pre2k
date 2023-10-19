@@ -3,6 +3,11 @@ from pre2k.logger import init_logger, logger, console
 from pre2k import __version__
 from pre2k.lib.commands import auth, unauth
 
+from logging import getLogger
+
+logger = getLogger(__name__)
+
+
 app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
@@ -25,4 +30,7 @@ app.add_typer(
 
 
 if __name__ == '__main__':
-    app(prog_name='pre2k')
+    try:
+        app(prog_name='pre2k')
+    except KeyboardException as e:
+        logger.error("The process was interrupted with CTRL+C.")
