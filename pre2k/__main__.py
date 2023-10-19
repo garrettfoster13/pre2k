@@ -1,4 +1,5 @@
 import typer
+import sys
 from pre2k.logger import init_logger, logger, console
 from pre2k import __version__
 from pre2k.lib.commands import auth, unauth
@@ -32,5 +33,6 @@ app.add_typer(
 if __name__ == '__main__':
     try:
         app(prog_name='pre2k')
-    except KeyboardException as e:
-        logger.error("The process was interrupted with CTRL+C.")
+    except KeyboardInterrupt as e:
+        logger.error(f"The process was interrupted with CTRL+C due to: {e}")
+        sys.exit(0)
