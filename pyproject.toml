@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "pre2k"
 version = "3.0"
-description = ""
+description = "Tool to query for the existence of pre-windows 2000 computer objects"
 authors = ["garrfoster", "Tw1sm"]
 
 [tool.poetry.dependencies]
