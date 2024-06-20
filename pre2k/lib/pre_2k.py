@@ -63,6 +63,7 @@ class Pre2k:
                 lmhash, nthash = self.hashes.split(':')
             if not (self.password or self.hashes or self.aes or self.no_pass):
                     self.password = getpass("Password:")
+            channel_binding = dict()
             if self.binding:
                 channel_binding = dict(channel_binding=ldap3.TLS_CHANNEL_BINDING)
             try:
