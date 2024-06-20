@@ -12,6 +12,7 @@ def main(
     domain          : str   = typer.Option(..., '-d',  help="Target domain"),
     dc_ip           : str   = typer.Option(..., '-dc-ip',  help = "IP address or FQDN of domain controller"),
     ldaps           : bool  = typer.Option(False, '-ldaps', help='Use LDAPS instead of LDAP'),
+    binding         : bool  = typer.Option(False, '-binding', help='Use DLAPS channel biding'),
     kerberos        : bool  = typer.Option(False, "-k", help='Use Kerberos authentication'),
     no_pass         : bool  = typer.Option(False, "-no-pass", help="don't ask for password (useful for -k)"),
     hashes          : str   = typer.Option(None, "-hashes",metavar="LMHASH:NTHASH", help="LM and NT hashes, format is LMHASH:NTHASH",),
@@ -27,7 +28,7 @@ def main(
     threads         : int   = typer.Option(10, "-threads", help="Number of threads to spray with. Default: 10")):
 
    pre2k = Pre2k(username=username, password=password, domain=domain, dc_ip=dc_ip, verbose=verbose,
-                    ldaps=ldaps, kerberos=kerberos, no_pass=no_pass, hashes=hashes, aes=aes, targeted=targeted,
+                    ldaps=ldaps, binding=binding, kerberos=kerberos, no_pass=no_pass, hashes=hashes, aes=aes, targeted=targeted,
                     outputfile=outputfile, stop_on_success=stop_on_success, save=save,
                     empty_pass=empty_pass, sleep=sleep, jitter=jitter, threads=threads)
    pre2k.run()

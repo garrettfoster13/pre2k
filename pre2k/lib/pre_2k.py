@@ -16,13 +16,14 @@ import ldap3
 
 
 class Pre2k:
-    def __init__(self, username=None, password=None, domain=None, dc_ip=None, ldaps=False, kerberos=False, no_pass=False, 
+    def __init__(self, username=None, password=None, domain=None, dc_ip=None, ldaps=False, binding=False, kerberos=False, no_pass=False, 
                     hashes=None, aes=None, targeted=False, verbose=False, outputfile=None, inputfile=None,
                     stop_on_success=False, save=False, empty_pass=False, sleep=None, jitter=None, threads=None, authenticated=True):
         self.username = username
         self.password = password
         self.domain = domain
         self.ldaps = ldaps
+        self.binding = binding
         self.kerberos = kerberos
         self.no_pass = no_pass
         self.hashes = hashes
@@ -62,9 +63,10 @@ class Pre2k:
                 lmhash, nthash = self.hashes.split(':')
             if not (self.password or self.hashes or self.aes or self.no_pass):
                     self.password = getpass("Password:")
-
+            if self.binding:
+                channel_binding = dict(channel_binding=ldap3.TLS_CHANNEL_BINDING)
             try:
-                ldap_server, ldap_session = init_ldap_session(domain=self.domain, username=self.username, password=self.password, lmhash=lmhash, nthash=nthash, kerberos=self.kerberos, domain_controller=self.dc_ip, aesKey=self.aes, hashes=self.hashes, ldaps=self.ldaps)
+                ldap_server, ldap_session = init_ldap_session(domain=self.domain, username=self.username, password=self.password, lmhash=lmhash, nthash=nthash, kerberos=self.kerberos, domain_controller=self.dc_ip, aesKey=self.aes, hashes=self.hashes, ldaps=self.ldaps, channel_binding=channel_binding)
             except ldap3.core.exceptions.LDAPSocketOpenError as e: 
                 if 'invalid server address' in str(e):
                     logger.error (f'Invalid server address - {self.domain}')
