@@ -34,12 +34,16 @@ class MachineHunter:
                 json_entry = json.loads(entry.entry_to_json())
                 attributes = json_entry['attributes'].keys()
                 for attr in attributes:
-                    val = entry[attr].value
-                    if len(val) >= 15:
-                        #if account name is 15 chars or more pw is first 14
-                        credentials = val + ":" + val.lower()[:14]
-                    else:
-                        credentials = val + ":" + val.lower()[:-1]
-                    creds.append(credentials)
+                    try:
+                        val = entry[attr].value
+                        if len(val) >= 15:
+                            #if account name is 15 chars or more pw is first 14
+                            credentials = val + ":" + val.lower()[:14]
+                        else:
+                            credentials = val + ":" + val.lower()[:-1]
+                        creds.append(credentials)
+                    except TypeError as e:
+                        print(f"Error processing attribute {attr}: {e}")
+                        continue
             logger.info (f'Retrieved {len(self.ldap_session.entries)} results total.')
             return creds

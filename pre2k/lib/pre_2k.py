@@ -80,7 +80,7 @@ class Pre2k:
                 logger.error(f'Error: {str(e)}')
                 exit()
             finder=MachineHunter(ldap_server, ldap_session, domain=self.domain, targeted=self.targeted)
-            self. creds = finder.fetch_computers(ldap_session)
+            self.creds = finder.fetch_computers(ldap_session)
             self.pw_spray()
 
 
