@@ -18,9 +18,11 @@ class MachineHunter:
         num = 0
         with console.status(f"Searching...", spinner="dots") as status:
             if self.targeted:
-                search_filter = "(&(objectclass=computer)(logonCount=0))"
+                #search_filter = "(&(objectclass=computer)(logonCount=0))" # default
+                search_filter = "(&(userAccountControl=4128)(logonCount=0))" # based on https://trustedsec.com/blog/diving-into-pre-created-computer-accounts
             else:
-                search_filter = "(objectclass=computer)"
+                #search_filter = "(objectclass=computer)" # default
+                search_filter = "(&(userAccountControl=4128))" 
             try:
                 ldap_session.extend.standard.paged_search(self.search_base, search_filter, attributes=self.attributes, paged_size=500, generator=False)
                 # print (f'Retrieved {len(self.ldap_session.entries)} results total.')
