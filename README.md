@@ -37,7 +37,7 @@ pip3 install .
 Pre2k uses Poetry to manage dependencies. Install from source and setup for development with:
 ```
 pip3 install poetry
-git clone https://github.com/garrettfoster13/pre2k.git
+git clone https://github.com/rtnvv/pre2k.git
 cd pre2k/
 poetry install
 poetry run pre2k --help
