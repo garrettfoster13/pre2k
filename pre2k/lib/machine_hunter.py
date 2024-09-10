@@ -5,13 +5,18 @@ import json
 
 class MachineHunter:
     
-    def __init__(self, ldap_server, ldap_session, domain, targeted):
+    def __init__(self, ldap_server, ldap_session, domain, target_dom, targeted):
         self.ldap_server = ldap_server
         self.ldap_session = ldap_session
-        self.search_base = get_dn(domain)
         self.attributes = "sAMAccountName"
         self.domain = domain
+        self.target_dom = target_dom
         self.targeted = targeted
+
+        if self.target_dom:
+            self.search_base = get_dn(target_dom)
+        else:
+            self.search_base = get_dn(domain)
 
     def fetch_computers(self, ldap_session):
         creds = []

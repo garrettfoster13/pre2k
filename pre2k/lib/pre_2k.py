@@ -16,12 +16,13 @@ import ldap3
 
 
 class Pre2k:
-    def __init__(self, username=None, password=None, domain=None, dc_ip=None, ldaps=False, binding=False, kerberos=False, no_pass=False, 
+    def __init__(self, username=None, password=None, domain=None, target_dom=None, dc_ip=None, ldaps=False, binding=False, kerberos=False, no_pass=False, 
                     hashes=None, aes=None, targeted=False, verbose=False, outputfile=None, inputfile=None,
                     stop_on_success=False, save=False, empty_pass=False, sleep=None, jitter=None, threads=None, authenticated=True):
         self.username = username
         self.password = password
         self.domain = domain
+        self.target_dom = target_dom
         self.ldaps = ldaps
         self.binding = binding
         self.kerberos = kerberos
@@ -67,7 +68,7 @@ class Pre2k:
             if self.binding:
                 channel_binding = dict(channel_binding=ldap3.TLS_CHANNEL_BINDING)
             try:
-                ldap_server, ldap_session = init_ldap_session(domain=self.domain, username=self.username, password=self.password, lmhash=lmhash, nthash=nthash, kerberos=self.kerberos, domain_controller=self.dc_ip, aesKey=self.aes, hashes=self.hashes, ldaps=self.ldaps, channel_binding=channel_binding)
+                ldap_server, ldap_session = init_ldap_session(target_dom=self.target_dom, domain=self.domain, username=self.username, password=self.password, lmhash=lmhash, nthash=nthash, kerberos=self.kerberos, domain_controller=self.dc_ip, aesKey=self.aes, hashes=self.hashes, ldaps=self.ldaps, channel_binding=channel_binding)
             except ldap3.core.exceptions.LDAPSocketOpenError as e: 
                 if 'invalid server address' in str(e):
                     logger.error (f'Invalid server address - {self.domain}')
@@ -114,37 +115,68 @@ class Pre2k:
         status.update(f"Tried {self.tried}/{len(self.creds)}. {self.valid} valid.")
         self.tried += 1
         username, password = cred.split(":")
-        if self.empty_pass:
-            password = ''
-        try:
-            executer = GETTGT(username, password, self.domain, self.dc_ip)
-            validate = executer.run(self.save)
-        except KerberosError:
+        if self.target_dom:
             if self.empty_pass:
-                line = (f'Invalid credentials: {self.domain}\\{username}:nopass')
-            else:
-                line = (f'Invalid credentials: {self.domain}\\{cred}')
-            logger.debug (line)
-            if self.outputfile:
-                    self.printlog(line)
-            self.delay()
-            return False
-        if validate:
-            self.valid += 1
+                password = ''
+            try:
+                executer = GETTGT(username, password, self.target_dom, self.dc_ip)
+                validate = executer.run(self.save)
+            except KerberosError:
+                if self.empty_pass:
+                    line = (f'Invalid credentials: {self.target_dom}\\{username}:nopass')
+                else:
+                    line = (f'Invalid credentials: {self.target_dom}\\{cred}')
+                logger.debug (line)
+                if self.outputfile:
+                        self.printlog(line)
+                self.delay()
+                return False
+            if validate:
+                self.valid += 1
+                if self.empty_pass:
+                    line = (f'[green bold]VALID CREDENTIALS[/]: {self.target_dom}\\{username}:nopass')
+
+                else:   
+                    line = (f'[green bold]VALID CREDENTIALS[/]: {self.target_dom}\\{cred}')
+                logger.info (line, extra=OBJ_EXTRA_FMT)
+                if self.outputfile:
+                    self.printlog(line.split(":"))
+                if self.save:
+                    logger.info(f'Saving ticket in {username}.ccache')
+                
+                self.delay()
+                return True
+        else:
             if self.empty_pass:
-                line = (f'[green bold]VALID CREDENTIALS[/]: {self.domain}\\{username}:nopass')
+                password = ''
+            try:
+                executer = GETTGT(username, password, self.domain, self.dc_ip)
+                validate = executer.run(self.save)
+            except KerberosError:
+                if self.empty_pass:
+                    line = (f'Invalid credentials: {self.domain}\\{username}:nopass')
+                else:
+                    line = (f'Invalid credentials: {self.domain}\\{cred}')
+                logger.debug (line)
+                if self.outputfile:
+                        self.printlog(line)
+                self.delay()
+                return False
+            if validate:
+                self.valid += 1
+                if self.empty_pass:
+                    line = (f'[green bold]VALID CREDENTIALS[/]: {self.domain}\\{username}:nopass')
 
-            else:   
-                line = (f'[green bold]VALID CREDENTIALS[/]: {self.domain}\\{cred}')
-            logger.info (line, extra=OBJ_EXTRA_FMT)
-            if self.outputfile:
-                self.printlog(line.split(":"))
-            if self.save:
-                logger.info(f'Saving ticket in {username}.ccache')
-            
-            self.delay()
-            return True
-
+                else:   
+                    line = (f'[green bold]VALID CREDENTIALS[/]: {self.domain}\\{cred}')
+                logger.info (line, extra=OBJ_EXTRA_FMT)
+                if self.outputfile:
+                    self.printlog(line.split(":"))
+                if self.save:
+                    logger.info(f'Saving ticket in {username}.ccache')
+                
+                self.delay()
+                return True
 
     def delay(self):
         if self.sleep and self.jitter:
