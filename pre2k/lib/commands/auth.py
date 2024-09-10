@@ -9,7 +9,8 @@ HELP = 'Query the domain for pre Windows 2000 machine accounts.'
 def main(
     username        : str   = typer.Option(None, "-u",  help="Username"),
     password        : str   = typer.Option(None, '-p',  help="Password"),
-    domain          : str   = typer.Option(..., '-d',  help="Target domain"),
+    domain          : str   = typer.Option(..., '-d',  help="Domain"),
+    target_dom      : str   = typer.Option(None, '-t', help="Target domain"),
     dc_ip           : str   = typer.Option(..., '-dc-ip',  help = "IP address or FQDN of domain controller"),
     ldaps           : bool  = typer.Option(False, '-ldaps', help='Use LDAPS instead of LDAP'),
     binding         : bool  = typer.Option(False, '-binding', help='Use DLAPS channel biding'),
@@ -27,7 +28,7 @@ def main(
     jitter          : int   = typer.Option(None, "-jitter", help="Add jitter to sleep time."),
     threads         : int   = typer.Option(10, "-threads", help="Number of threads to spray with. Default: 10")):
 
-   pre2k = Pre2k(username=username, password=password, domain=domain, dc_ip=dc_ip, verbose=verbose,
+   pre2k = Pre2k(username=username, password=password, domain=domain, target_dom=target_dom, dc_ip=dc_ip, verbose=verbose,
                     ldaps=ldaps, binding=binding, kerberos=kerberos, no_pass=no_pass, hashes=hashes, aes=aes, targeted=targeted,
                     outputfile=outputfile, stop_on_success=stop_on_success, save=save,
                     empty_pass=empty_pass, sleep=sleep, jitter=jitter, threads=threads)
