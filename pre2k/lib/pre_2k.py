@@ -68,7 +68,7 @@ class Pre2k:
             if self.binding:
                 channel_binding = dict(channel_binding=ldap3.TLS_CHANNEL_BINDING)
             try:
-                ldap_server, ldap_session = init_ldap_session(target_dom=self.target_dom, domain=self.domain, username=self.username, password=self.password, lmhash=lmhash, nthash=nthash, kerberos=self.kerberos, domain_controller=self.dc_ip, aesKey=self.aes, hashes=self.hashes, ldaps=self.ldaps, channel_binding=channel_binding)
+                ldap_server, ldap_session = init_ldap_session(domain=self.domain, username=self.username, password=self.password, lmhash=lmhash, nthash=nthash, kerberos=self.kerberos, domain_controller=self.dc_ip, aesKey=self.aes, hashes=self.hashes, ldaps=self.ldaps, channel_binding=channel_binding)
             except ldap3.core.exceptions.LDAPSocketOpenError as e: 
                 if 'invalid server address' in str(e):
                     logger.error (f'Invalid server address - {self.domain}')
@@ -80,7 +80,7 @@ class Pre2k:
             except ldap3.core.exceptions.LDAPBindError as e:
                 logger.error(f'Error: {str(e)}')
                 exit()
-            finder=MachineHunter(ldap_server, ldap_session, domain=self.domain, targeted=self.targeted)
+            finder=MachineHunter(ldap_server, ldap_session, domain=self.domain, target_dom=self.target_dom, targeted=self.targeted)
             self. creds = finder.fetch_computers(ldap_session)
             self.pw_spray()
 
