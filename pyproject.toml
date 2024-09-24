@@ -11,6 +11,7 @@ ldap3 = {git = "https://github.com/ly4k/ldap3"}
 pyasn1 = "0.4.8"
 rich = "12.5.1"
 typer = "^0.6.1"
+pycryptodome = "3.20.0"
 
 [tool.poetry.dev-dependencies]
 
