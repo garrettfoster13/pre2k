@@ -23,7 +23,7 @@ class MachineHunter:
         num = 0
         with console.status(f"Searching...", spinner="dots") as status:
             if self.targeted:
-                search_filter = "(&(objectclass=computer)(logonCount=0))"
+                search_filter = "(&(objectClass=computer)(!(lastLogonTimestamp=*)))"
             else:
                 search_filter = "(objectclass=computer)"
             try:

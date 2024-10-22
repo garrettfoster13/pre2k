@@ -18,7 +18,7 @@ def main(
     no_pass         : bool  = typer.Option(False, "-no-pass", help="don't ask for password (useful for -k)"),
     hashes          : str   = typer.Option(None, "-hashes",metavar="LMHASH:NTHASH", help="LM and NT hashes, format is LMHASH:NTHASH",),
     aes             : str   = typer.Option(None, '-aes', metavar="HEX KEY", help='AES key to use for Kerberos Authentication (128 or 256 bits)'),
-    targeted        : bool  = typer.Option(False, '-targeted', help="Search for computer accounts with logoncount=0."),
+    targeted        : bool  = typer.Option(False, '-targeted', help="Search for computer accounts with lastlogontimestamp not set"),
     verbose         : bool  = typer.Option(False, "-verbose", help="Verbose output displaying failed attempts."),
     outputfile      : str   = typer.Option(None, "-outputfile", help="Log results to file."),
     stop_on_success : bool  = typer.Option(False, "-stoponsuccess", help="Stop on sucessful authentication"),
