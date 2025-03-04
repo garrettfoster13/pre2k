@@ -217,7 +217,7 @@ class Pre2k:
   \ \ \/  \/_/ \/____/         \/_____/   \/_/\/_/
    \ \_\                                      v{__version__}    
     \/_/                                          
-                                            @garrfoster
+                                            @unsigned_sh0rt
                                             @Tw1sm          
 '''
         print(banner)
