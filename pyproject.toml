@@ -12,6 +12,7 @@ pyasn1 = "0.4.8"
 rich = "12.5.1"
 typer = "^0.6.1"
 pycryptodome = "3.20.0"
+click = "8.1.8"
 
 [tool.poetry.dev-dependencies]
 
