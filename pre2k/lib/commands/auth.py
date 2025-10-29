@@ -13,7 +13,7 @@ def main(
     target_dom      : str   = typer.Option(None, '-t', help="Target domain"),
     dc_ip           : str   = typer.Option(..., '-dc-ip',  help = "IP address or FQDN of domain controller"),
     ldaps           : bool  = typer.Option(False, '-ldaps', help='Use LDAPS instead of LDAP'),
-    binding         : bool  = typer.Option(False, '-binding', help='Use DLAPS channel biding'),
+    binding         : bool  = typer.Option(False, '-binding', help='Use LDAPS channel biding'),
     kerberos        : bool  = typer.Option(False, "-k", help='Use Kerberos authentication'),
     no_pass         : bool  = typer.Option(False, "-no-pass", help="don't ask for password (useful for -k)"),
     hashes          : str   = typer.Option(None, "-hashes",metavar="LMHASH:NTHASH", help="LM and NT hashes, format is LMHASH:NTHASH",),
