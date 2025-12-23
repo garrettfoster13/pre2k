@@ -199,7 +199,6 @@ class Pre2k:
             else:
                 credentials = i + ":" + i.lower()[:-1]
             self.creds.append(credentials)
-            print(credentials)
 
 
     def printlog(self, line):
