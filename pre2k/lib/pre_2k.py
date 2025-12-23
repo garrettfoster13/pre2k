@@ -191,8 +191,12 @@ class Pre2k:
     def parse_input(self):
         y = self.inputfile.read().split("\n")
         for i in y:
+            if not i.strip():  # Skip empty lines
+                continue
+            if not i.endswith("$"):
+                i = i + "$"
             if len(i) >= 15:
-                # if accountname is 15 chars or more pw is first 14 
+                # if accountname is 15 chars or more pw is first 14
                 # #we dont need to add the $ because  ms-kile will find the account for us and add a $...this helps us out with the logic
                 credentials = i[:15] + ":" + i.lower()[:14]
             else:
