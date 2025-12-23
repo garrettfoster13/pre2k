@@ -191,12 +191,15 @@ class Pre2k:
     def parse_input(self):
         y = self.inputfile.read().split("\n")
         for i in y:
-            if len(i) >= 16:
-                # if accountname is 15 chars or more pw is first 14
-                credentials = i + ":" + i.lower()[:-2]
+            print(len(i))
+            if len(i) >= 15:
+                # if accountname is 15 chars or more pw is first 14 
+                # #we dont need to add the $ because  ms-kile will find the account for us and add a $...this helps us out with the logic
+                credentials = i[:15] + ":" + i.lower()[:14]
             else:
                 credentials = i + ":" + i.lower()[:-1]
             self.creds.append(credentials)
+            print(credentials)
 
 
     def printlog(self, line):
@@ -211,7 +214,7 @@ class Pre2k:
                                 ___    __         
                               /'___`\ /\ \        
  _____   _ __    __          /\_\ /\ \\\\ \ \/'\    
-/\ '__`\/\`'__\/'__`\ _______\/_/// /__\ \ , <    
+/\ '__`\/\`'__\/'__`\ _______\/_/// /__\ \ , <    fpar
 \ \ \L\ \ \ \//\  __//\______\  // /_\ \\\\ \ \\\\`\  
  \ \ ,__/\ \_\\\\ \____\/______/ /\______/ \ \_\ \_\\
   \ \ \/  \/_/ \/____/         \/_____/   \/_/\/_/
