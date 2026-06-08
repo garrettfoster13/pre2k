@@ -17,18 +17,20 @@ def get_dn(domain):
     return base[1:]
 
 def get_machine_name(domain_controller, domain):
-    if domain_controller is not None:
-        s = SMBConnection(domain_controller, domain_controller)
-    else:
-        s = SMBConnection(domain, domain)
     try:
-        s.login('', '')
+        s = SMBConnection(domain_controller, domain_controller)
+        try:
+            s.login('', '')
+            name = s.getServerName()
+            s.logoff()
+            if name:
+                return name
+        except Exception:
+            pass
     except Exception:
-        if s.getServerName() == '':
-            raise Exception('Error while anonymous logging into %s' % domain)
-    else:
-        s.logoff()
-    return s.getServerName()
+        pass
+
+    return domain_controller.split('.')[0]
 
 def init_ldap_connection(target, tls_version, domain, username, password, lmhash, nthash, domain_controller, kerberos, hashes, aesKey, channel_binding):
     user = '%s\\%s' % (domain, username)
