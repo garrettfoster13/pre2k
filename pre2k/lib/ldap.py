@@ -2,6 +2,7 @@ from impacket.smbconnection import SMBConnection
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 from binascii import unhexlify
 from ldap3 import ANONYMOUS
+from ldap3.core.results import RESULT_STRONGER_AUTH_REQUIRED
 from pre2k.logger import logger
 import ldap3
 import ssl
@@ -115,17 +116,19 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     from impacket.krb5.types import Principal, KerberosTime, Ticket
     import datetime
 
-    if TGT is not None or TGS is not None or aesKey is not None:
+    if TGT is not None or TGS is not None or aesKey:
         useCache = False
 
     if useCache:
-        try:
-            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-        except Exception as e:
-            # No cache present
-            logger.warning(e)
-            pass
-        else:
+        cache_path = os.getenv('KRB5CCNAME')
+        ccache = None
+        if cache_path:
+            try:
+                ccache = CCache.loadFile(cache_path)
+            except Exception as e:
+                logger.warning(e)
+
+        if ccache is not None:
             # retrieve domain information from CCache file if needed
             if domain == '':
                 domain = ccache.principal.realm['data'].decode('utf-8')
@@ -139,6 +142,15 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
                 # Let's try for the TGT and go from there
                 principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
                 creds = ccache.getCredential(principal)
+                if creds is None:
+                    # Support TGTs that use the NetBIOS realm.
+                    accepted_realms = {domain.upper(), domain.split('.')[0].upper()}
+                    for credential in ccache.credentials:
+                        server = credential['server'].prettyPrint().decode('utf-8')
+                        service, _, realm = server.upper().partition('@')
+                        if service.startswith('KRBTGT/') and service.split('/', 1)[1] in accepted_realms and realm == domain.upper():
+                            creds = credential
+                            break
                 if creds is not None:
                     TGT = creds.toTGT()
                     logger.debug('Using TGT from cache')
@@ -155,6 +167,12 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
             elif user == '' and len(ccache.principal.components) > 0:
                 user = ccache.principal.components[0]['data'].decode('utf-8')
                 logger.debug('Username retrieved from CCache: %s' % user)
+
+    if TGT is None and TGS is None and not password and not lmhash and not nthash and not aesKey:
+        cache_path = os.getenv('KRB5CCNAME')
+        if cache_path:
+            raise RuntimeError("No usable Kerberos TGT was found in KRB5CCNAME='%s'" % cache_path)
+        raise RuntimeError('Kerberos -no-pass requires KRB5CCNAME to point to a valid ccache')
 
     # First of all, we need to get a TGT for the user
     userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -229,6 +247,8 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     response = connection.post_send_single_response(connection.send('bindRequest', request, None))
     connection.sasl_in_progress = False
     if response[0]['result'] != 0:
+        if response[0]['result'] == RESULT_STRONGER_AUTH_REQUIRED:
+            raise RuntimeError('LDAP integrity checking is required by the server; retry with -ldaps')
         raise Exception(response)
 
     connection.bound = True

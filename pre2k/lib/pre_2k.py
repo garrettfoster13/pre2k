@@ -80,6 +80,9 @@ class Pre2k:
             except ldap3.core.exceptions.LDAPBindError as e:
                 logger.error(f'Error: {str(e)}')
                 exit()
+            except RuntimeError as e:
+                logger.error(str(e))
+                exit()
             finder=MachineHunter(ldap_server, ldap_session, domain=self.domain, target_dom=self.target_dom, targeted=self.targeted)
             self. creds = finder.fetch_computers(ldap_session)
             self.pw_spray()
